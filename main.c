@@ -140,7 +140,7 @@ int download_file_from(char *server, char *url, char *to)
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, file_desc);
         curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
 
-        //curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
+          //curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
 
         for (try = 0; try < 3; try++) {
             res = curl_easy_perform(curl);
