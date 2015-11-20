@@ -1,7 +1,11 @@
 #include <time.h>
 #include <stdio.h>
+#include <limits.h>
 
 #include "log.h"
+#include "dirs.h"
+
+static FILE *_log_fp = NULL;
 
 char* get_formated_time(void) 
 {
@@ -16,4 +20,33 @@ char* get_formated_time(void)
 
     return _retval;
 }
+
+void set_log_file(char *filename)
+{
+    char lfile[PATH_MAX]; 
+
+    sprintf(lfile, "%s/%s", LOG_PATH, filename);
+    _log_fp = fopen(lfile, "wb");
+    if (!_log_fp) {
+        _log_fp = stderr;
+        fprintf(stderr, "Fail to create log file %s\n", lfile);
+    }
+}
+
+inline FILE* get_log_fp(void)
+{
+    if (!_log_fp)
+        _log_fp = stderr;
+
+    return _log_fp;
+}
+
+void close_log_file(void)
+{
+    if (_log_fp != stderr) {
+        fclose(_log_fp);
+        _log_fp = NULL;
+    }
+}
+
 

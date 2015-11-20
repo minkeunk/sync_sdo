@@ -4,11 +4,11 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <libgen.h>
 
 #include <curl/curl.h>
 
-#include <libgen.h>
 #include "list.h"
 
 #include "sdo_data.h"
@@ -124,9 +124,15 @@ int download_file_from(char *server, char *url, char *to)
     char kasi_url[PATH_MAX] = "";
     struct FILE_DESC *file_desc;
     int try;
+    char *bname, *filename;
 
+    bname = strdup(url);
+    filename = basename(bname);
+    free(bname);
+
+    LOGINFO("downloading %s\n", filename);
     curl = curl_easy_init();
-    LOGINFO("downloading from http://%s%s\n", server, url);
+    //LOGINFO("downloading from http://%s%s", server, url);
     if (curl) {
 
         sprintf(kasi_url, "http://%s%s", server, url);
@@ -139,8 +145,11 @@ int download_file_from(char *server, char *url, char *to)
         file_desc->curl = curl;
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, file_desc);
         curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
+        curl_easy_setopt(curl, CURLOPT_TCP_KEEPALIVE, 1L);
+        curl_easy_setopt(curl, CURLOPT_TCP_KEEPIDLE, 60L);
+        curl_easy_setopt(curl, CURLOPT_TCP_KEEPINTVL, 30L);
 
-          //curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
+        //curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
 
         for (try = 0; try < 3; try++) {
             res = curl_easy_perform(curl);
@@ -166,7 +175,10 @@ int download_file_from(char *server, char *url, char *to)
             LOGINFO("download failed\n");
             return FAILED;
         } else {
-            LOGINFO("successfully downloaded\n");
+            double speed;
+            curl_easy_getinfo(curl, CURLINFO_SIZE_DOWNLOAD, &speed);
+            LOGINFO("successfully downloaded at %d kbytes/s\n", 
+                    (int)speed/1000);
             return SUCCESS;
         }
     }
@@ -231,9 +243,17 @@ int download_images_for_day(int year, int month, int day,
 
 int main(void)
 {
+    char logfile[PATH_MAX];
+
+    if (!is_exist(LOG_PATH))
+        mkdir(LOG_PATH, 0777);
+
     curl_global_init(CURL_GLOBAL_DEFAULT);
 
+    sprintf(logfile, "%04d%02d%02d.log", 2015, 9, 16);
+    set_log_file(logfile);
     download_images_for_day(2015, 9, 16, AIA_94);
+    close_log_file();
 
     curl_global_cleanup();
     return 0;
