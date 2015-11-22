@@ -23,6 +23,9 @@ typedef enum SDO_IMAGE_TYPE {
 #define SUCCESS 1
 #define FAILED  0
 
+#define TRUE 1
+#define FALSE 0
+
 #endif //__SDO_DATA_H__
 
 

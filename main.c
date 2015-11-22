@@ -15,6 +15,7 @@
 #include "kasi_servers.h"
 #include "dirs.h"
 #include "log.h"
+#include "work.h"
 
 #define METAURL_FORMAT "/metadata/nasa/sdo/%s/%s/%s/%04d/%04d%02d%02d_%s_%s_%s.txt"
 
@@ -76,6 +77,7 @@ int generate_file_list(char *url, struct IMAGE_FILE *image_file_list)
             file = (struct IMAGE_FILE*)malloc(sizeof(struct IMAGE_FILE));
             count = fscanf(fp, "%s %s\n", file->rec_time, file->file_name);
             if (count != 2) {
+                free(file);
                 break;
             }
             list_add(&(file->list), &(image_file_list->list));
@@ -207,6 +209,7 @@ int download_images_for_day(int year, int month, int day,
             res = download_file_from(METADATA_SERVER, url, METADATA_SAVE_PATH);
             if (res == FAILED) {
                 LOGWARN("downloading metadata file failed!.(%s%s)\n", url);
+                work_list_add(year, month, day, i);
                 continue;
             }
         } else {
@@ -224,7 +227,11 @@ int download_images_for_day(int year, int month, int day,
             if (!is_exist(file_name)) {
                 res = download_file_from(IMAGEDATA_SERVER, tmp->file_name,
                             IMAGEDATA_SAVE_PATH);
-                
+                if (res == FAILED) {
+                    LOGWARN("downloading file failed!. (%s%s)\n", url);
+                    work_list_add(year, month, day, i);
+                    continue;
+                }
             } else {
                 LOGINFO("%s exists. skip this file\n", file_name);
             }
@@ -244,16 +251,42 @@ int download_images_for_day(int year, int month, int day,
 int main(void)
 {
     char logfile[PATH_MAX];
+    struct WORK_DESC *work_list, *tmp;
+    struct list_head *pos, *q;
+    int res;
 
     if (!is_exist(LOG_PATH))
         mkdir(LOG_PATH, 0777);
 
     curl_global_init(CURL_GLOBAL_DEFAULT);
 
-    sprintf(logfile, "%04d%02d%02d.log", 2015, 9, 16);
-    set_log_file(logfile);
-    download_images_for_day(2015, 9, 16, AIA_94);
-    close_log_file();
+
+    do {
+        work_list = work_list_load();
+        if (!work_list) {
+            work_list = work_list_init();
+        }
+
+        list_for_each_safe(pos, q, &(work_list->list)) {
+            struct tm* time;
+            
+            tmp = list_entry(pos, struct WORK_DESC, list);
+            time = gmtime(&tmp->time);
+
+            sprintf(logfile, "%04d%02d%02d.log", time->tm_year,
+                    time->tm_mon, time->tm_mday);
+            set_log_file(logfile);
+
+            res = download_images_for_day(time->tm_year+1900, time->tm_mon, 
+                time->tm_mday, tmp->type);
+            if (res == SUCCESS) {
+                list_del(pos);
+                free(tmp);
+                work_list_save();
+            }
+            close_log_file();
+        }
+    } while(1);
 
     curl_global_cleanup();
     return 0;
