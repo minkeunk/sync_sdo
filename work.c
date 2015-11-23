@@ -24,6 +24,7 @@ struct WORK_DESC* work_list_init(void)
     time_t work_time;
     struct WORK_DESC *work;
     int i;
+    struct tm* loctime;
 
     INIT_LIST_HEAD(&_work_list.list);
 
@@ -35,7 +36,8 @@ struct WORK_DESC* work_list_init(void)
         work = (struct WORK_DESC*)malloc(sizeof(struct WORK_DESC));
         work->time = work_time;
         work->type = AIA_94;
-        list_add(&(work->list), &(_work_list.list));
+
+       list_add_tail(&(work->list), &(_work_list.list));
     }
 
     work_list_save();
@@ -48,10 +50,10 @@ void work_list_save(void)
     FILE* fp;
     struct WORK_DESC *tmp;
 
-    fp = fopen(WORK_FILE, "wb");
+    fp = fopen(WORK_FILE, "wt");
     if (fp)
         list_for_each_entry(tmp, &_work_list.list, list) 
-            fprintf(fp, "%ld %d", tmp->time, tmp->type);
+            fprintf(fp, "%ld %d\n", tmp->time, tmp->type);
     fclose(fp);
 }
 
@@ -61,15 +63,15 @@ struct WORK_DESC* work_list_load(void)
     struct WORK_DESC *tmp;
     struct list_head *pos, *q;
 
+    INIT_LIST_HEAD(&_work_list.list);
     /* empty list */
     list_for_each_safe(pos, q, &_work_list.list) {
         tmp = list_entry(pos, struct WORK_DESC, list);
         list_del(pos);
         free(tmp);
     }
-    INIT_LIST_HEAD(&_work_list.list);
 
-    fp = fopen(WORK_FILE, "rb");
+    fp = fopen(WORK_FILE, "rt");
     if (fp) {
         long time;
         int type;
@@ -85,7 +87,7 @@ struct WORK_DESC* work_list_load(void)
                 tmp->time = time;
                 tmp->type = type;
 
-                list_add(&(tmp->list), &(_work_list.list));
+                list_add_tail(&(tmp->list), &(_work_list.list));
             }
         }
         fclose(fp);
@@ -101,8 +103,8 @@ void work_list_add(int year, int month, int day, int type)
     struct tm tm_time;
     time_t time;
 
-    tm_time.tm_year = year + 1900;
-    tm_time.tm_mon = month;
+    tm_time.tm_year = year - 1900;
+    tm_time.tm_mon = month - 1;
     tm_time.tm_mday = day;
     tm_time.tm_hour = tm_time.tm_min = tm_time.tm_sec = tm_time.tm_isdst = 0;
 

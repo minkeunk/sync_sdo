@@ -31,6 +31,7 @@ void set_log_file(char *filename)
         _log_fp = stderr;
         fprintf(stderr, "Fail to create log file %s\n", lfile);
     }
+    _log_fp = stderr;
 }
 
 inline FILE* get_log_fp(void)

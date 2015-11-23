@@ -273,11 +273,11 @@ int main(void)
             tmp = list_entry(pos, struct WORK_DESC, list);
             time = gmtime(&tmp->time);
 
-            sprintf(logfile, "%04d%02d%02d.log", time->tm_year,
-                    time->tm_mon, time->tm_mday);
+            sprintf(logfile, "%04d%02d%02d.log", time->tm_year+1900,
+                    time->tm_mon+1, time->tm_mday);
             set_log_file(logfile);
 
-            res = download_images_for_day(time->tm_year+1900, time->tm_mon, 
+            res = download_images_for_day(time->tm_year+1900, time->tm_mon+1, 
                 time->tm_mday, tmp->type);
             if (res == SUCCESS) {
                 list_del(pos);
@@ -286,6 +286,7 @@ int main(void)
             }
             close_log_file();
         }
+        sleep(21600); //for 6hrs
     } while(1);
 
     curl_global_cleanup();
