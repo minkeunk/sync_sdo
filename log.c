@@ -21,12 +21,12 @@ char* get_formated_time(void)
     return _retval;
 }
 
-void set_log_file(char *filename)
+void log_file_set(char *filename)
 {
     char lfile[PATH_MAX]; 
 
     if (_log_fp)
-        close_log_file();
+        log_file_close();
 
     sprintf(lfile, "%s/%s", LOG_PATH, filename);
     _log_fp = fopen(lfile, "wb");
@@ -36,7 +36,7 @@ void set_log_file(char *filename)
     }
 }
 
-inline FILE* get_log_fp(void)
+inline FILE* log_file_fp(void)
 {
     if (!_log_fp)
         _log_fp = stderr;
@@ -44,7 +44,7 @@ inline FILE* get_log_fp(void)
     return _log_fp;
 }
 
-void close_log_file(void)
+void log_file_close(void)
 {
     if (_log_fp != stderr) {
         fclose(_log_fp);

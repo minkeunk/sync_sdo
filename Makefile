@@ -1,9 +1,9 @@
-TARGET = sync_kasi_sdo_data
+TARGET = sync_kasi_sdo
 
 CC = gcc
 LD = gcc 
 
-CFLAGS = 
+CFLAGS = -D__CYGWIN__
 LFLAGS = -lcurl
 
 DEPS = dirs.h list.h sdo_data.h kasi_server.h log.h
