@@ -25,13 +25,15 @@ void set_log_file(char *filename)
 {
     char lfile[PATH_MAX]; 
 
+    if (_log_fp)
+        close_log_file();
+
     sprintf(lfile, "%s/%s", LOG_PATH, filename);
     _log_fp = fopen(lfile, "wb");
     if (!_log_fp) {
         _log_fp = stderr;
         fprintf(stderr, "Fail to create log file %s\n", lfile);
     }
-    _log_fp = stderr;
 }
 
 inline FILE* get_log_fp(void)

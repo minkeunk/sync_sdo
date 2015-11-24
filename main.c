@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <libgen.h>
+#include <time.h>
 
 #include <curl/curl.h>
 
@@ -198,6 +199,7 @@ int download_images_for_day(int year, int month, int day,
     struct list_head *pos, *q;
     char file_name[PATH_MAX];
     int res;
+    int result = SUCCESS;
 
     LOGINFO("starting download for %4d-%02d-%02d.\n", year, month, day);
     url = (char*)malloc(PATH_MAX);
@@ -210,6 +212,8 @@ int download_images_for_day(int year, int month, int day,
             if (res == FAILED) {
                 LOGWARN("downloading metadata file failed!.(%s%s)\n", url);
                 work_list_add(year, month, day, i);
+                work_list_save();
+                result = FAILED;
                 continue;
             }
         } else {
@@ -230,6 +234,8 @@ int download_images_for_day(int year, int month, int day,
                 if (res == FAILED) {
                     LOGWARN("downloading file failed!. (%s%s)\n", url);
                     work_list_add(year, month, day, i);
+                    work_list_save();
+                    result = FAILED;
                     continue;
                 }
             } else {
@@ -245,15 +251,63 @@ int download_images_for_day(int year, int month, int day,
     free(url);
 
     LOGINFO("download completed for %4d-%02d-%02d.\n", year, month, day);
-    return 0;
+    return result;
 }
 
+void check_storage(void)
+{
+    time_t today;
+    struct tm *tm_s;
+    char *url;
+    int i;
+    struct IMAGE_FILE *image_file_list, *tmp;
+    struct list_head *pos, *q;
+    char meta_name[PATH_MAX];
+    char image_name[PATH_MAX];
+
+    today = time(NULL);
+    today -= 34128000L; // for 1year and 30days
+
+    url = (char*)malloc(PATH_MAX);
+
+    for (i = AIA_94; i < SDO_IMAGE_TYPE_MAX; i++) {
+        tm_s = gmtime(&today);
+        generate_metadata_url(tm_s->tm_year + 1900, tm_s->tm_mon+1, 
+                tm_s->tm_mday, i, url);
+        sprintf(meta_name, "%s%s", METADATA_SAVE_PATH, url);
+        if (is_exist(meta_name)) {
+            image_file_list = 
+                (struct IMAGE_FILE*)malloc(sizeof(struct IMAGE_FILE));
+            INIT_LIST_HEAD(&(image_file_list->list));
+            generate_file_list(url, image_file_list);
+
+            list_for_each_safe(pos, q, &(image_file_list->list)) {
+                tmp = list_entry(pos, struct IMAGE_FILE, list);
+
+                sprintf(image_name, "%s%s", 
+                        IMAGEDATA_SAVE_PATH, tmp->file_name);
+                if (is_exist(image_name)) {
+                    fprintf(stderr, "removing %s\n", image_name);
+                    remove(image_name);
+                }
+                list_del(pos);
+                free(tmp);
+            }
+            free(image_file_list);
+            fprintf(stderr, "removing %s\n", meta_name);
+            remove(meta_name);
+        }
+    }
+    free(url);
+}
+    
 int main(void)
 {
     char logfile[PATH_MAX];
     struct WORK_DESC *work_list, *tmp;
     struct list_head *pos, *q;
     int res;
+    time_t start, end, duration;
 
     if (!is_exist(LOG_PATH))
         mkdir(LOG_PATH, 0777);
@@ -266,27 +320,48 @@ int main(void)
         if (!work_list) {
             work_list = work_list_init();
         }
-
+        start = time(NULL);
         list_for_each_safe(pos, q, &(work_list->list)) {
-            struct tm* time;
-            
-            tmp = list_entry(pos, struct WORK_DESC, list);
-            time = gmtime(&tmp->time);
+            struct tm* tm_s;
+            time_t today;
 
-            sprintf(logfile, "%04d%02d%02d.log", time->tm_year+1900,
-                    time->tm_mon+1, time->tm_mday);
+            /* check storage 
+             * delete data over 1year + 30days
+             */
+            check_storage(); 
+
+            /* try to download today's data */
+            today = time(NULL);
+            tm_s = gmtime(&today);
+            sprintf(logfile, "%04d%02d%02d.log", tm_s->tm_year+1900,
+                    tm_s->tm_mon+1, tm_s->tm_mday);
             set_log_file(logfile);
 
-            res = download_images_for_day(time->tm_year+1900, time->tm_mon+1, 
-                time->tm_mday, tmp->type);
+            download_images_for_day(tm_s->tm_year + 1900, tm_s->tm_mon + 1,
+                    tm_s->tm_mday, AIA_94);
+            close_log_file();
+
+            /* then download past data */
+            tmp = list_entry(pos, struct WORK_DESC, list);
+            tm_s = gmtime(&tmp->time);
+
+            sprintf(logfile, "%04d%02d%02d.log", tm_s->tm_year+1900,
+                    tm_s->tm_mon+1, tm_s->tm_mday);
+            set_log_file(logfile);
+
+            res = download_images_for_day(tm_s->tm_year+1900, tm_s->tm_mon+1, 
+                tm_s->tm_mday, tmp->type);
             if (res == SUCCESS) {
                 list_del(pos);
                 free(tmp);
-                work_list_save();
             }
+            work_list_save();
             close_log_file();
         }
-        sleep(21600); //for 6hrs
+        end = time(NULL);
+        duration = 10800 - (end - start);
+        if (duration >= 0) 
+            sleep(duration);
     } while(1);
 
     curl_global_cleanup();
