@@ -14,7 +14,7 @@ OBJ = main.o dirs.o log.o work.o
 
 $(TARGET) : $(OBJ)
 	$(LD) -o $@ $^ $(LFLAGS)
-	cp $@ ../
+	mv $@ ../
 
 
 clean:
