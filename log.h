@@ -11,7 +11,7 @@ void log_file_close(void);
 void log_file_set(char *);
 //#define __SHORT_FILE__ (strrchr(__FILE__, '/')? strrchr(__FILE__, '/') + 1 : __FILE__)
 
-#define __LOG__(format, loglevel, ...) fprintf(log_file_fp(), "%s %-1s [%s:%d] " format, get_formated_time(), loglevel, __FILE__, __LINE__, ## __VA_ARGS__)
+#define __LOG__(format, loglevel, ...) fprintf(log_file_fp(), "%s %-1s " format, get_formated_time(), loglevel, ## __VA_ARGS__)
 
 #define LOGDEBUG(format, ...) __LOG__(format, "D", ## __VA_ARGS__)
 #define LOGWARN(format,...) __LOG__(format, "W", ## __VA_ARGS__)

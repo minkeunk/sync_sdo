@@ -262,6 +262,7 @@ static void _check_storage(void)
     struct list_head *pos, *q;
     char meta_name[PATH_MAX];
     char image_name[PATH_MAX];
+    char log_file[PATH_MAX];
 
     today = time(NULL);
     today -= 34128000L; // for 1year and 30days
@@ -273,6 +274,7 @@ static void _check_storage(void)
         _generate_metadata_url(tm_s->tm_year + 1900, tm_s->tm_mon+1, 
                 tm_s->tm_mday, i, url);
         sprintf(meta_name, "%s%s", METADATA_SAVE_PATH, url);
+        
         if (is_exist(meta_name)) {
             image_file_list = 
                 (struct IMAGE_FILE*)malloc(sizeof(struct IMAGE_FILE));
@@ -297,6 +299,14 @@ static void _check_storage(void)
         }
     }
     free(url);
+       
+    /*
+     * remove log file
+     */
+    tm_s = gmtime(&today);
+    sprintf(log_file, "%s/%04d%02d%02d.log", LOG_PATH, tm_s->tm_year+1900,
+                   tm_s->tm_mon+1, tm_s->tm_mday);
+    remove(log_file);
 }
     
 int main(void)
