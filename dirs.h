@@ -16,7 +16,7 @@ int is_exist(char *);
 #else
 #define METADATA_SAVE_PATH "/home/sdo_kasi/http"
 #define IMAGEDATA_SAVE_PATH "/home/sdo_kasi/http"
-#define LOG_PATH "/home/sdo_kasi/http"
+#define LOG_PATH "/home/sdo_kasi/sync_sdo/logs"
 #endif
 
 #ifdef __cplusplus

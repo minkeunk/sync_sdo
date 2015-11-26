@@ -207,17 +207,16 @@ static int _download_images_for_day(int year, int month, int day,
     for (i = start_image; i < SDO_IMAGE_TYPE_MAX; i++) {
         _generate_metadata_url(year, month, day, i, url);
         sprintf(file_name, "%s%s", METADATA_SAVE_PATH, url);
-        if (!is_exist(file_name)) {
-            res = _download_file_from(METADATA_SERVER, url, METADATA_SAVE_PATH);
-            if (res == FAILED) {
-                LOGWARN("downloading metadata file failed!.(%s%s)\n", url);
-                work_list_add(year, month, day, i);
-                work_list_save();
-                result = FAILED;
-                continue;
-            }
-        } else {
-            LOGINFO("%s exists. skip this file\n", file_name);
+        if (is_exist(file_name)) {
+            LOGINFO("%s exist. deleting file and downloading.\n", file_name);
+            remove(file_name);
+        }
+        res = _download_file_from(METADATA_SERVER, url, METADATA_SAVE_PATH);
+        if (res == FAILED) {
+            LOGWARN("downloading metadata file failed!.(%s%s)\n", url);
+            work_list_add(year, month, day, i);
+            result = FAILED;
+            continue;
         }
 
         image_file_list = (struct IMAGE_FILE*)malloc(sizeof(struct IMAGE_FILE));
@@ -234,7 +233,6 @@ static int _download_images_for_day(int year, int month, int day,
                 if (res == FAILED) {
                     LOGWARN("downloading file failed!. (%s%s)\n", url);
                     work_list_add(year, month, day, i);
-                    work_list_save();
                     result = FAILED;
                     continue;
                 }
@@ -316,10 +314,8 @@ int main(void)
 
 
     do {
-        work_list = work_list_load();
-        if (!work_list) {
-            work_list = work_list_init();
-        }
+        work_list = work_list_init();
+        
         start = time(NULL);
         list_for_each_safe(pos, q, &(work_list->list)) {
             struct tm* tm_s;
@@ -330,8 +326,13 @@ int main(void)
              */
             _check_storage(); 
 
-            /* try to download today's data */
+            /* if 1day pasts since last start. reschecule work */
             today = time(NULL);
+            duration = today - start;
+            if (duration > 86400L) 
+                break; 
+
+            /* try to download today's data */
             tm_s = gmtime(&today);
             sprintf(logfile, "%04d%02d%02d.log", tm_s->tm_year+1900,
                     tm_s->tm_mon+1, tm_s->tm_mday);
@@ -355,12 +356,11 @@ int main(void)
                 list_del(pos);
                 free(tmp);
             }
-            work_list_save();
             log_file_close();
         }
         end = time(NULL);
-        duration = 10800 - (end - start);
-        if (duration >= 0) 
+        duration = 10800L - (end - start); //for 3hours
+        if (duration >= 0 && duration < 10800L) 
             sleep(duration);
     } while(1);
 
