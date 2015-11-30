@@ -313,7 +313,31 @@ static void _check_storage(void)
                    tm_s->tm_mon+1, tm_s->tm_mday);
     remove(log_file);
 }
-    
+
+#ifndef __CYGWIN__
+static int _is_running(void) 
+{
+    FILE *pf;
+    char buff[512];
+
+    pf = popen("ps -A | grep sync_kasi_sdo", "r");
+    if (!pf) {
+        fprintf(stderr, "could not open pipe for output. quiting..\n");
+        return 0;
+    }
+
+    while (fgets(buff, sizeof(buff), pf) != NULL) {};
+
+    pclose(pf);
+
+    if (strstr(buff, "sync_kasi_sdo"))
+        return 1;
+    else
+        return 0;
+
+    return 0;
+}
+#endif
 int main(void)
 {
     char logfile[PATH_MAX];
@@ -322,6 +346,12 @@ int main(void)
     int res;
     time_t start, end, duration;
 
+#ifndef __CYGWIN__
+    if (_is_running()) {
+        fprintf(strerr, "another sync_kasi_sdo programing is running. quiting..\n");
+        return 0;
+    }
+#endif
     if (!is_exist(LOG_PATH))
         mkdir(LOG_PATH, 0777);
 
