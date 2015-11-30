@@ -10,9 +10,9 @@ int is_exist(char *);
 
 
 #ifdef __CYGWIN__
-#define METADATA_SAVE_PATH "c:/cygwin64/home/sdo_kasi"
-#define IMAGEDATA_SAVE_PATH "c:/cygwin64/home/sdo_kasi"
-#define LOG_PATH "c:/cygwin64/home/sdo_kasi/sync_logs"
+#define METADATA_SAVE_PATH "./data"
+#define IMAGEDATA_SAVE_PATH "./data"
+#define LOG_PATH "./data/logs"
 #else
 #define METADATA_SAVE_PATH "/home/sdo_kasi/http"
 #define IMAGEDATA_SAVE_PATH "/home/sdo_kasi/http"

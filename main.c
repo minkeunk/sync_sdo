@@ -151,6 +151,7 @@ static int _download_file_from(char *server, char *url, char *to)
         curl_easy_setopt(curl, CURLOPT_TCP_KEEPALIVE, 1L);
         curl_easy_setopt(curl, CURLOPT_TCP_KEEPIDLE, 60L);
         curl_easy_setopt(curl, CURLOPT_TCP_KEEPINTVL, 30L);
+        curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1);
 
         //curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
 
@@ -159,6 +160,10 @@ static int _download_file_from(char *server, char *url, char *to)
 
             if (res == CURLE_OK) break;
             else {
+                if (file_desc->stream) {
+                    fclose(file_desc->stream);
+                    file_desc = NULL;
+                }
                 LOGINFO("curl told us %d, trying again (%d)", res, try);
             } 
         }

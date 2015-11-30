@@ -40,8 +40,6 @@ struct WORK_DESC* work_list_init(void)
        list_add_tail(&(work->list), &(_work_list.list));
     }
 
-    work_list_save();
-
     return &_work_list;
 }
 
