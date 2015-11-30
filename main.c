@@ -58,7 +58,7 @@ static int _generate_metadata_url(int year, int month, int day,
             year, year, month, day, format, _sdo_image_type_string[image_type], 
             option);
 
-    LOGINFO("generating metaurl %s..done\n", url);
+    //LOGINFO("generating metaurl %s..done\n", url);
     return 0;
 }
 
@@ -348,7 +348,7 @@ int main(void)
 
 #ifndef __CYGWIN__
     if (_is_running()) {
-        fprintf(strerr, "another sync_kasi_sdo programing is running. quiting..\n");
+        fprintf(strerr, "another sync_kasi_sdo instance is running. quiting..\n");
         return 0;
     }
 #endif
