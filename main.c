@@ -7,6 +7,7 @@
 #include <string.h>
 #include <libgen.h>
 #include <time.h>
+#include <signal.h>
 
 #include <curl/curl.h>
 
@@ -417,7 +418,7 @@ static void _start_service(void)
 static void _stop_service(void)
 {
     pid_t pid;
-    pid = get_pid_by_name("sync_sdo_kasi");
+    pid = get_pid_by_name("sync_kasi_sdo");
     if (pid < 0)
         return;
 
