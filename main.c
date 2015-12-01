@@ -219,12 +219,11 @@ static int _download_images_for_day(int year, int month, int day,
         }
         res = _download_file_from(METADATA_SERVER, url, METADATA_SAVE_PATH);
         if (res == FAILED) {
-            LOGWARN("downloading metadata file failed!.(%s%s)\n", url);
+            LOGWARN("downloading metadata file failed!.(%s)\n", url);
             work_list_add(year, month, day, i);
             result = FAILED;
             continue;
         }
-
         image_file_list = (struct IMAGE_FILE*)malloc(sizeof(struct IMAGE_FILE));
         INIT_LIST_HEAD(&(image_file_list->list));
         _generate_file_list(url, image_file_list);
@@ -237,7 +236,7 @@ static int _download_images_for_day(int year, int month, int day,
                 res = _download_file_from(IMAGEDATA_SERVER, tmp->file_name,
                             IMAGEDATA_SAVE_PATH);
                 if (res == FAILED) {
-                    LOGWARN("downloading file failed!. (%s%s)\n", url);
+                    LOGWARN("downloading file failed!. (%s)\n", url);
                     work_list_add(year, month, day, i);
                     result = FAILED;
                     continue;
@@ -453,9 +452,6 @@ int main(int argc, char *argv[])
             service = SERVICE_HELP;
     } else 
         service = SERVICE_HELP;
-
-    if (service != SERVICE_HELP)
-        return 0;
 
     switch (service) {
         case SERVICE_HELP:
