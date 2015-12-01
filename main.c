@@ -314,31 +314,7 @@ static void _check_storage(void)
     remove(log_file);
 }
 
-#ifndef __CYGWIN__
-static int _is_running(void) 
-{
-    FILE *pf;
-    char buff[512];
-
-    pf = popen("ps -A | grep sync_kasi_sdo", "r");
-    if (!pf) {
-        fprintf(stderr, "could not open pipe for output. quiting..\n");
-        return 0;
-    }
-
-    while (fgets(buff, sizeof(buff), pf) != NULL) {};
-
-    pclose(pf);
-
-    if (strstr(buff, "sync_kasi_sdo"))
-        return 1;
-    else
-        return 0;
-
-    return 0;
-}
-#endif
-int main(void)
+static void _start_sync(void)
 {
     char logfile[PATH_MAX];
     struct WORK_DESC *work_list, *tmp;
@@ -346,12 +322,7 @@ int main(void)
     int res;
     time_t start, end, duration;
 
-#ifndef __CYGWIN__
-    if (_is_running()) {
-        fprintf(strerr, "another sync_kasi_sdo instance is running. quiting..\n");
-        return 0;
-    }
-#endif
+
     if (!is_exist(LOG_PATH))
         mkdir(LOG_PATH, 0777);
 
@@ -410,6 +381,107 @@ int main(void)
     } while(1);
 
     curl_global_cleanup();
+    return;
+}
+
+static void _start_service(void)
+{
+    pid_t pid = 0;
+    pid_t sid = 0;
+
+    pid = fork();
+
+    if (pid < 0) {
+        fprintf(stderr, "fork failed\n");
+        exit(1);
+    }
+
+    if (pid > 0) {
+        exit(0);
+    }
+
+    umask(0);
+    sid = setsid();
+    if (sid < 0) {
+        exit(1);
+    }
+
+    close(STDIN_FILENO);
+    close(STDOUT_FILENO);
+    close(STDERR_FILENO);
+
+    _start_sync();
+
+}
+
+static void _stop_service(void)
+{
+    pid_t pid;
+    pid = get_pid_by_name("sync_sdo_kasi");
+    if (pid < 0)
+        return;
+
+    kill(pid, SIGKILL);
+    return;
+}
+
+static void _show_help(void)
+{
+    fprintf(stderr, "Sync Kasi SDO 1.0\n");
+    fprintf(stderr, "start \t Start sync_kasi_sdo service.\n");
+    fprintf(stderr, "stop \t Stop sync_kasi_sdo service.\n");
+}
+
+enum {
+    SERVICE_START,
+    SERVICE_STOP,
+    SERVICE_HELP
+};
+
+int main(int argc, char *argv[])
+{
+    long service;
+    pid_t pid;
+
+    if (argc == 2) {
+        if (strcmp(argv[1], "start") == 0)
+            service = SERVICE_START;
+        else if (strcmp(argv[1], "stop") == 0)
+            service = SERVICE_STOP;
+        else
+            service = SERVICE_HELP;
+    } else 
+        service = SERVICE_HELP;
+
+    if (service != SERVICE_HELP)
+        return 0;
+
+    switch (service) {
+        case SERVICE_HELP:
+            _show_help();
+            break;
+
+        case SERVICE_START:
+            pid = get_pid_by_name("sync_kasi_sdo");
+            if (pid > 0) {
+                fprintf(stderr, "sync_kasi_sdo is already running.\n");
+                return 0;
+            }
+            fprintf(stderr, "sync_kasi_sdo service starts.\n");
+            _start_service();
+            break;
+
+        case SERVICE_STOP:
+            pid = get_pid_by_name("sync_kasi_sdo");
+            if (pid < 0) {
+                fprintf(stderr, "sync_kasi_sdo is not running\n");
+                return 0;
+            }
+            _stop_service();
+            fprintf(stderr, "sync_kasi_sdo service stops.\n");
+            break;
+    }
+
     return 0;
 }
 
