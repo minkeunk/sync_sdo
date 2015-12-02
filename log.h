@@ -14,8 +14,8 @@ void log_file_set(char *);
 #define __LOG__(format, loglevel, ...) fprintf(log_file_fp(), "%s %-1s [%s:%d] " format, get_formated_time(), loglevel, __FILE__, __LINE__, ## __VA_ARGS__)
 
 #define LOGDEBUG(format, ...) __LOG__(format, "D", ## __VA_ARGS__)
-#define LOGWARN(format,...) __LOG__(format, "W", ## __VA_ARGS__)
-#define LOGERROR(format, ...) __LOG__(format, "E", ## __VA_ARGS__)
+#define LOGWARN(format,...) __LOG__(format, "W", ## __VA_ARGS__); fflush(log_file_fp());
+#define LOGERROR(format, ...) __LOG__(format, "E", ## __VA_ARGS__); fflush(log_file_fp());
 #define LOGINFO(format, ...) __LOG__(format, "I", ## __VA_ARGS__)
 
 #ifdef __cplusplus

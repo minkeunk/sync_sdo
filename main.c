@@ -71,7 +71,7 @@ static int _generate_file_list(char *url, struct IMAGE_FILE *image_file_list)
     int count;
 
     LOGINFO("generating image file list.");
-    sprintf(metadata_path, "%s%s\0", METADATA_SAVE_PATH, url);
+    sprintf(metadata_path, "%s%s", METADATA_SAVE_PATH, url);
 
     fp = fopen(metadata_path, "rb");
     if (fp) {
@@ -85,7 +85,7 @@ static int _generate_file_list(char *url, struct IMAGE_FILE *image_file_list)
             list_add(&(file->list), &(image_file_list->list));
         }
     } else {
-        LOGINFO("Failed to open file %s\n", metadata_path);
+        LOGWARN("Failed to open file %s\n", metadata_path);
         fclose(fp);
         return FAILED;
     }
@@ -156,22 +156,7 @@ static int _download_file_from(char *server, char *url, char *to)
 
         //curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
 
-        for (try = 0; try < 3; try++) {
-            res = curl_easy_perform(curl);
-
-            if (res == CURLE_OK) break;
-            else {
-                if (file_desc->stream) {
-                    fclose(file_desc->stream);
-                    file_desc = NULL;
-                }
-                LOGINFO("curl told us %d, trying again (%d)", res, try);
-            } 
-        }
-
-        if (try == 3) {
-            LOGINFO("download failed\n");
-        }
+        res = curl_easy_perform(curl);
 
         curl_easy_cleanup(curl);
 
@@ -180,8 +165,9 @@ static int _download_file_from(char *server, char *url, char *to)
 
         free(file_desc);
 
-        if (try == 3) {
-            LOGINFO("download failed\n");
+        if (res != CURLE_OK) {
+            LOGWARN("download failed\n");
+            LOGWARN("cURL returns %d\n", res);
             return FAILED;
         } else {
             double speed;
@@ -192,7 +178,7 @@ static int _download_file_from(char *server, char *url, char *to)
         }
     }
 
-    LOGINFO("curl init failed\n");
+    LOGWARN("curl init failed\n");
     return FAILED;
 }
 
@@ -236,7 +222,7 @@ static int _download_images_for_day(int year, int month, int day,
                 res = _download_file_from(IMAGEDATA_SERVER, tmp->file_name,
                             IMAGEDATA_SAVE_PATH);
                 if (res == FAILED) {
-                    LOGWARN("downloading file failed!. (%s)\n", url);
+                    LOGWARN("downloading file failed!. (%s)\n", tmp->file_name);
                     work_list_add(year, month, day, i);
                     result = FAILED;
                     continue;
