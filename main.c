@@ -8,6 +8,7 @@
 #include <libgen.h>
 #include <time.h>
 #include <signal.h>
+#include <pthread.h>
 
 #include <curl/curl.h>
 
@@ -33,10 +34,19 @@ struct IMAGE_FILE {
     struct list_head list;
 };
 
+typedef enum {
+    TODAY_THREAD = 0,
+    PAST_THREAD,
+    MAX_THREAD
+} THREAD_NO;
+
 static char *_sdo_image_type_string[SDO_IMAGE_TYPE_MAX] = {
     "94", "131", "171", "193", "211", "304", "335", "1600", "1700", "4500",
     "Ic", "Ic_flat", "M", "M_color"
 };
+
+static int _thread_data[MAX_THREAD] = {0, 1};
+static int _update_interval = 30L;
 
 static int _generate_metadata_url(int year, int month, int day,
                             sdo_image_type image_type, char *url)
@@ -63,14 +73,15 @@ static int _generate_metadata_url(int year, int month, int day,
     return 0;
 }
 
-static int _generate_file_list(char *url, struct IMAGE_FILE *image_file_list)
+static int _generate_file_list(char *url, struct IMAGE_FILE *image_file_list, 
+        FILE *lp)
 {
     char metadata_path[PATH_MAX];
     struct IMAGE_FILE *file;
     FILE *fp;
     int count;
 
-    LOGINFO("generating image file list.");
+    LOGINFO(lp, "generating image file list.");
     sprintf(metadata_path, "%s%s", METADATA_SAVE_PATH, url);
 
     fp = fopen(metadata_path, "rb");
@@ -85,14 +96,14 @@ static int _generate_file_list(char *url, struct IMAGE_FILE *image_file_list)
             list_add(&(file->list), &(image_file_list->list));
         }
     } else {
-        LOGWARN("Failed to open file %s\n", metadata_path);
+        LOGWARN(lp, "Failed to open file %s\n", metadata_path);
         fclose(fp);
         return FAILED;
     }
 
     fclose(fp);
 
-    LOGINFO("done.\n");
+    LOGINFO(lp, "done.\n");
     return SUCCESS;
 }
 
@@ -121,7 +132,7 @@ static size_t _file_write_func(void *buffer, size_t size, size_t nmemb,
     return fwrite(buffer, size, nmemb, out->stream);
 }
 
-static int _download_file_from(char *server, char *url, char *to)
+static int _download_file_from(char *server, char *url, char *to, FILE *lp)
 {
     CURL *curl;
     CURLcode res;
@@ -134,7 +145,7 @@ static int _download_file_from(char *server, char *url, char *to)
     filename = basename(bname);
     free(bname);
 
-    LOGINFO("downloading %s\n", filename);
+    LOGINFO(lp, "downloading %s\n", filename);
     curl = curl_easy_init();
     //LOGINFO("downloading from http://%s%s", server, url);
     if (curl) {
@@ -166,24 +177,24 @@ static int _download_file_from(char *server, char *url, char *to)
         free(file_desc);
 
         if (res != CURLE_OK) {
-            LOGWARN("download failed\n");
-            LOGWARN("cURL returns %d\n", res);
+            LOGWARN(lp, "download failed\n");
+            LOGWARN(lp, "cURL returns %d\n", res);
             return FAILED;
         } else {
             double speed;
             curl_easy_getinfo(curl, CURLINFO_SIZE_DOWNLOAD, &speed);
-            LOGINFO("successfully downloaded at %d kbytes/s\n", 
+            LOGINFO(lp, "successfully downloaded at %d kbytes/s\n", 
                     (int)speed/1000);
             return SUCCESS;
         }
     }
 
-    LOGWARN("curl init failed\n");
+    LOGWARN(lp, "curl init failed\n");
     return FAILED;
 }
 
 static int _download_images_for_day(int year, int month, int day, 
-                            sdo_image_type start_image)
+                            sdo_image_type start_image, FILE* lp)
 {
     char *url;
     int i;
@@ -193,26 +204,26 @@ static int _download_images_for_day(int year, int month, int day,
     int res;
     int result = SUCCESS;
 
-    LOGINFO("starting download for %4d-%02d-%02d.\n", year, month, day);
+    LOGINFO(lp, "starting download for %4d-%02d-%02d.\n", year, month, day);
     url = (char*)malloc(PATH_MAX);
 
     for (i = start_image; i < SDO_IMAGE_TYPE_MAX; i++) {
         _generate_metadata_url(year, month, day, i, url);
         sprintf(file_name, "%s%s", METADATA_SAVE_PATH, url);
         if (is_exist(file_name)) {
-            LOGINFO("%s exist. deleting file and downloading.\n", file_name);
+            LOGINFO(lp, "%s exist. deleting file and downloading.\n", file_name);
             remove(file_name);
         }
-        res = _download_file_from(METADATA_SERVER, url, METADATA_SAVE_PATH);
+        res = _download_file_from(METADATA_SERVER, url, METADATA_SAVE_PATH, lp);
         if (res == FAILED) {
-            LOGWARN("downloading metadata file failed!.(%s)\n", url);
+            LOGWARN(lp, "downloading metadata file failed!.(%s)\n", url);
             work_list_add(year, month, day, i);
             result = FAILED;
             continue;
         }
         image_file_list = (struct IMAGE_FILE*)malloc(sizeof(struct IMAGE_FILE));
         INIT_LIST_HEAD(&(image_file_list->list));
-        _generate_file_list(url, image_file_list);
+        _generate_file_list(url, image_file_list, lp);
 
         list_for_each_safe(pos, q, &(image_file_list->list)) {
             tmp = list_entry(pos, struct IMAGE_FILE, list);
@@ -220,9 +231,9 @@ static int _download_images_for_day(int year, int month, int day,
             sprintf(file_name, "%s%s", IMAGEDATA_SAVE_PATH, tmp->file_name);
             if (!is_exist(file_name)) {
                 res = _download_file_from(IMAGEDATA_SERVER, tmp->file_name,
-                            IMAGEDATA_SAVE_PATH);
+                            IMAGEDATA_SAVE_PATH, lp);
                 if (res == FAILED) {
-                    LOGWARN("downloading file failed!. (%s)\n", tmp->file_name);
+                    LOGWARN(lp, "downloading file failed!. (%s)\n", tmp->file_name);
                     work_list_add(year, month, day, i);
                     list_del(pos);
                     free(tmp);
@@ -230,7 +241,7 @@ static int _download_images_for_day(int year, int month, int day,
                     continue;
                 }
             } else {
-                LOGINFO("%s exists. skip this file\n", file_name);
+                LOGINFO(lp, "%s exists. skip this file\n", file_name);
             }
 
             list_del(pos);
@@ -241,14 +252,14 @@ static int _download_images_for_day(int year, int month, int day,
     }
     free(url);
 
-    LOGINFO("download completed for %4d-%02d-%02d.\n", year, month, day);
+    LOGINFO(lp, "download completed for %4d-%02d-%02d.\n", year, month, day);
     return result;
 }
 
 static void _check_storage(void)
 {
     time_t today;
-    struct tm *tm_s;
+    struct tm tm_s;
     char *url;
     int i;
     struct IMAGE_FILE *image_file_list, *tmp;
@@ -257,22 +268,22 @@ static void _check_storage(void)
     char image_name[PATH_MAX];
     char log_file[PATH_MAX];
 
-    today = time(NULL);
+    time(&today);
     today -= 34128000L; // for 1year and 30days
 
     url = (char*)malloc(PATH_MAX);
 
     for (i = AIA_94; i < SDO_IMAGE_TYPE_MAX; i++) {
-        tm_s = gmtime(&today);
-        _generate_metadata_url(tm_s->tm_year + 1900, tm_s->tm_mon+1, 
-                tm_s->tm_mday, i, url);
+        gmtime_r(&today, &tm_s);
+        _generate_metadata_url(tm_s.tm_year + 1900, tm_s.tm_mon+1, 
+                tm_s.tm_mday, i, url);
         sprintf(meta_name, "%s%s", METADATA_SAVE_PATH, url);
         
         if (is_exist(meta_name)) {
             image_file_list = 
                 (struct IMAGE_FILE*)malloc(sizeof(struct IMAGE_FILE));
             INIT_LIST_HEAD(&(image_file_list->list));
-            _generate_file_list(url, image_file_list);
+            _generate_file_list(url, image_file_list, stderr);
 
             list_for_each_safe(pos, q, &(image_file_list->list)) {
                 tmp = list_entry(pos, struct IMAGE_FILE, list);
@@ -296,10 +307,103 @@ static void _check_storage(void)
     /*
      * remove log file
      */
-    tm_s = gmtime(&today);
-    sprintf(log_file, "%s/%04d%02d%02d.log", LOG_PATH, tm_s->tm_year+1900,
-                   tm_s->tm_mon+1, tm_s->tm_mday);
+    gmtime_r(&today, &tm_s);
+    sprintf(log_file, "%s/%04d%02d%02d.log", LOG_PATH, tm_s.tm_year+1900,
+                   tm_s.tm_mon+1, tm_s.tm_mday);
     remove(log_file);
+}
+
+static _set_current_download_day(THREAD_NO no, struct tm dtime)
+{
+    dtime.tm_sec = 0;
+    dtime.tm_min = 0;
+    dtime.tm_hour = 0;
+    dtime.tm_wday = 0;
+    dtime.tm_yday = 0;
+    dtime.tm_isdst = 0;
+
+    _thread_data[no] = mktime(&dtime);
+}
+
+inline static int _same_day_downloading(void)
+{
+    return (_thread_data[TODAY_THREAD] == _thread_data[PAST_THREAD]);
+}
+
+static void* _download_today_data(void *arg)
+{
+    char logfile[PATH_MAX];
+    time_t today, start, end;
+    struct tm start_s;
+    FILE *fp;
+
+    do {
+        time(&start);
+        gmtime_r(&start, &start_s);
+
+        do {} while (_same_day_downloading());
+        _set_current_download_day(TODAY_THREAD, start_s); 
+       
+        sprintf(logfile, "latest.log");
+        fp = open_log(logfile);
+        _download_images_for_day(start_s.tm_year + 1900, start_s.tm_mon + 1,
+                  start_s.tm_mday, AIA_94, fp);
+        close_log(fp);
+
+        sleep(300L); //for 5 minutes.
+   
+    } while (1);
+}
+
+static void* _download_past_data(void *arg)
+{
+    char logfile[PATH_MAX];
+    struct WORK_DESC *work_list, *tmp;
+    struct list_head *pos, *q;
+    int res;
+    time_t start, end, duration;
+    FILE *lp;
+
+    do {
+        struct tm tm_s, today_s;
+        time_t today;
+        
+        work_list = work_list_init();
+        
+        time(&start);
+        list_for_each_safe(pos, q, &(work_list->list)) {
+
+            _check_storage(); 
+
+            /* if 1day pasts since last start. reschecule work */
+            time(&today);
+            duration = today - start;
+            if (duration > 86400L) 
+                break; 
+
+            tmp = list_entry(pos, struct WORK_DESC, list);
+            gmtime_r(&tmp->time, &tm_s);
+
+            do {} while (_same_day_downloading());
+            _set_current_download_day(PAST_THREAD, tm_s); 
+ 
+            sprintf(logfile, "%04d%02d%02d.log", tm_s.tm_year+1900,
+                    tm_s.tm_mon+1, tm_s.tm_mday);
+            lp = open_log(logfile);
+
+            res = _download_images_for_day(tm_s.tm_year+1900, tm_s.tm_mon+1, 
+                tm_s.tm_mday, tmp->type, lp);
+            if (res == SUCCESS) {
+                list_del(pos);
+                free(tmp);
+            }
+            close_log(lp);
+        }
+        end = time(NULL);
+        duration =  1800L - (end - start); // for 30 min.
+        if (duration >= 0 && duration < 1800L) 
+            sleep(duration);
+    } while (1);
 }
 
 static void _start_sync(void)
@@ -309,64 +413,18 @@ static void _start_sync(void)
     struct list_head *pos, *q;
     int res;
     time_t start, end, duration;
-
+    pthread_t today_tid, past_tid;
 
     if (!is_exist(LOG_PATH))
         mkdir(LOG_PATH, 0777);
 
     curl_global_init(CURL_GLOBAL_DEFAULT);
 
+    pthread_create(&today_tid, NULL, _download_today_data, NULL);
+    pthread_create(&past_tid, NULL, _download_past_data, NULL);
 
-    do {
-        work_list = work_list_init();
-        
-        start = time(NULL);
-        list_for_each_safe(pos, q, &(work_list->list)) {
-            struct tm* tm_s;
-            time_t today;
-
-            /* check storage 
-             * delete data over 1year + 30days
-             */
-            _check_storage(); 
-
-            /* if 1day pasts since last start. reschecule work */
-            today = time(NULL);
-            duration = today - start;
-            if (duration > 86400L) 
-                break; 
-
-            /* try to download today's data */
-            tm_s = gmtime(&today);
-            sprintf(logfile, "%04d%02d%02d.log", tm_s->tm_year+1900,
-                    tm_s->tm_mon+1, tm_s->tm_mday);
-            log_file_set(logfile);
-
-            _download_images_for_day(tm_s->tm_year + 1900, tm_s->tm_mon + 1,
-                    tm_s->tm_mday, AIA_94);
-            log_file_close();
-
-            /* then download past data */
-            tmp = list_entry(pos, struct WORK_DESC, list);
-            tm_s = gmtime(&tmp->time);
-
-            sprintf(logfile, "%04d%02d%02d.log", tm_s->tm_year+1900,
-                    tm_s->tm_mon+1, tm_s->tm_mday);
-            log_file_set(logfile);
-
-            res = _download_images_for_day(tm_s->tm_year+1900, tm_s->tm_mon+1, 
-                tm_s->tm_mday, tmp->type);
-            if (res == SUCCESS) {
-                list_del(pos);
-                free(tmp);
-            }
-            log_file_close();
-        }
-        end = time(NULL);
-        duration = 10800L - (end - start); //for 3hours
-        if (duration >= 0 && duration < 10800L) 
-            sleep(duration);
-    } while(1);
+    pthread_join(today_tid, 0);
+    pthread_join(past_tid, 0);
 
     curl_global_cleanup();
     return;
@@ -416,8 +474,9 @@ static void _stop_service(void)
 static void _show_help(void)
 {
     fprintf(stderr, "Sync Kasi SDO 1.0\n");
-    fprintf(stderr, "start \t Start sync_kasi_sdo service.\n");
-    fprintf(stderr, "stop \t Stop sync_kasi_sdo service.\n");
+    fprintf(stderr, "Usage: sync_kasi_sdo [start|stop]\n");
+    fprintf(stderr, "-start \t\t Start sync_kasi_sdo service.\n");
+    fprintf(stderr, "-stop \t\t Stop sync_kasi_sdo service.\n");
 }
 
 enum {
@@ -433,12 +492,12 @@ int main(int argc, char *argv[])
 
     if (argc == 2) {
         if (strcmp(argv[1], "start") == 0)
-            service = SERVICE_START;
+            service = SERVICE_HELP;
         else if (strcmp(argv[1], "stop") == 0)
             service = SERVICE_STOP;
         else
             service = SERVICE_HELP;
-    } else 
+    } else
         service = SERVICE_HELP;
 
     switch (service) {

@@ -28,7 +28,7 @@ struct WORK_DESC* work_list_init(void)
 
     INIT_LIST_HEAD(&_work_list.list);
 
-    work_time = time(NULL);
+    time(&work_time);
 
     /* for 1 year and 30 days */
     for (i = 0; i < 365 + 30; i++) {

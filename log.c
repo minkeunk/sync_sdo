@@ -10,17 +10,17 @@ static FILE *_log_fp = NULL;
 char* get_formated_time(void) 
 {
     time_t rawtime;
-    struct tm *timeinfo;
+    struct tm timeinfo;
     static char _retval[20];
 
     time(&rawtime);
-    timeinfo = localtime(&rawtime);
+    localtime_r(&rawtime, &timeinfo);
 
-    strftime(_retval, sizeof(_retval), "%Y-%m-%d %H:%M:%S", timeinfo);
+    strftime(_retval, sizeof(_retval), "%Y-%m-%d %H:%M:%S", &timeinfo);
 
     return _retval;
 }
-
+/*
 void log_file_set(char *filename)
 {
     char lfile[PATH_MAX]; 
@@ -51,5 +51,25 @@ void log_file_close(void)
         _log_fp = NULL;
     }
 }
+*/
+FILE* open_log(char *filename)
+{
+    char lfile[PATH_MAX]; 
+    FILE *fp;
 
+    sprintf(lfile, "%s/%s", LOG_PATH, filename);
+    fp = fopen(lfile, "wb");
+    if (!fp) {
+        fp = stderr;
+        fprintf(stderr, "Fail to create log file %s\n", lfile);
+    }
+
+    return fp;
+}
+
+void close_log(FILE *fp)
+{
+    if (fp)
+        fclose(fp);
+}
 
