@@ -224,6 +224,8 @@ static int _download_images_for_day(int year, int month, int day,
                 if (res == FAILED) {
                     LOGWARN("downloading file failed!. (%s)\n", tmp->file_name);
                     work_list_add(year, month, day, i);
+                    list_del(pos);
+                    free(tmp);
                     result = FAILED;
                     continue;
                 }
