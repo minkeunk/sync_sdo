@@ -393,10 +393,8 @@ static void* _download_past_data(void *arg)
 
             res = _download_images_for_day(tm_s.tm_year+1900, tm_s.tm_mon+1, 
                 tm_s.tm_mday, tmp->type, lp);
-            if (res == SUCCESS) {
-                list_del(pos);
-                free(tmp);
-            }
+            list_del(pos);
+            free(tmp);
             close_log(lp);
         }
         end = time(NULL);
@@ -492,7 +490,7 @@ int main(int argc, char *argv[])
 
     if (argc == 2) {
         if (strcmp(argv[1], "start") == 0)
-            service = SERVICE_HELP;
+            service = SERVICE_START;
         else if (strcmp(argv[1], "stop") == 0)
             service = SERVICE_STOP;
         else

@@ -25,6 +25,16 @@ struct WORK_DESC* work_list_init(void)
     struct WORK_DESC *work;
     int i;
     struct tm* loctime;
+    struct WORK_DESC *tmp;
+    struct list_head *pos, *q;
+
+
+    list_for_each_safe(pos, q, &_work_list.list) {
+        tmp = list_entry(pos, struct WORK_DESC, list);
+        list_del(pos);
+        free(tmp);
+    }
+
 
     INIT_LIST_HEAD(&_work_list.list);
 
