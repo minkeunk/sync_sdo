@@ -19,7 +19,7 @@ struct WORK_DESC {
 };
 
 struct WORK_DESC* work_list_init(void);
-
+void work_list_del(void);
 struct WORK_DESC* work_list_load(void);
 void work_list_save(void);
 

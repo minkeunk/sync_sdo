@@ -397,6 +397,7 @@ static void* _download_past_data(void *arg)
             free(tmp);
             close_log(lp);
         }
+        work_list_del();
         end = time(NULL);
         duration =  1800L - (end - start); // for 30 min.
         if (duration >= 0 && duration < 1800L) 
@@ -526,6 +527,5 @@ int main(int argc, char *argv[])
 
     return 0;
 }
-
 
 

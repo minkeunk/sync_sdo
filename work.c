@@ -18,13 +18,8 @@ static int _same_work_exist(long time, int type)
 
     return FALSE;
 }
-
-struct WORK_DESC* work_list_init(void)
+void work_list_del(void)
 {
-    time_t work_time;
-    struct WORK_DESC *work;
-    int i;
-    struct tm* loctime;
     struct WORK_DESC *tmp;
     struct list_head *pos, *q;
 
@@ -34,7 +29,14 @@ struct WORK_DESC* work_list_init(void)
         list_del(pos);
         free(tmp);
     }
+}
 
+struct WORK_DESC* work_list_init(void)
+{
+    time_t work_time;
+    struct WORK_DESC *work;
+    int i;
+    struct tm* loctime;
 
     INIT_LIST_HEAD(&_work_list.list);
 
