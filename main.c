@@ -97,7 +97,6 @@ static int _generate_file_list(char *url, struct IMAGE_FILE *image_file_list,
         }
     } else {
         LOGWARN(lp, "Failed to open file %s\n", metadata_path);
-        fclose(fp);
         return FAILED;
     }
 
@@ -378,7 +377,7 @@ static void* _download_past_data(void *arg)
             /* if 1day pasts since last start. reschecule work */
             time(&today);
             duration = today - start;
-            if (duration > 86400L) 
+            if (duration > 14400L) 
                 break; 
 
             tmp = list_entry(pos, struct WORK_DESC, list);
